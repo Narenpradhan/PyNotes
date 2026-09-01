@@ -1,0 +1,3 @@
+"""
+Note-Taking Application package.
+"""
