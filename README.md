@@ -94,10 +94,11 @@ uvicorn app.main:app --reload --port 8000
 ## 📌 API Endpoints
 
 ### Entity Schema (`Note`)
-- `id` (*string*): Unique identifier (MongoDB ObjectId as string)
+- `id` (*string*): 3-digit unique identifier (e.g., `"101"`, `"102"`)
 - `title` (*string*): Title of the note
 - `content` (*string*): Content/body of the note
 - `created_at` (*datetime*): UTC creation timestamp
+- `updated_at` (*datetime, optional*): UTC update timestamp
 
 ---
 
@@ -111,8 +112,9 @@ uvicorn app.main:app --reload --port 8000
 | `GET` | `/health/startup` (or `/startupz`) | **Startup Probe**: Verifies initialization is done | `200 OK` / `503 Service Unavailable` |
 | `POST` | `/notes` | Create a new note | `201 Created` |
 | `GET` | `/notes` | List all notes | `200 OK` |
-| `GET` | `/notes/{id}` | Fetch a note by ID | `200 OK` (or `404`) |
-| `DELETE`| `/notes/{id}` | Delete a note by ID | `200 OK` (or `404`) |
+| `GET` | `/notes/{id}` | Fetch a note by 3-digit ID | `200 OK` (or `404`) |
+| `PUT` | `/notes/{id}` | Update a note by 3-digit ID | `200 OK` (or `404`) |
+| `DELETE`| `/notes/{id}` | Delete a note by 3-digit ID | `200 OK` (or `404`) |
 
 ---
 
@@ -165,19 +167,58 @@ curl -X POST "http://localhost:8000/notes" \
      -H "Content-Type: application/json" \
      -d '{"title": "DevOps Practice", "content": "Practice Dockerizing FastAPI and deploying to K8s!"}'
 ```
+**Response (`201 Created`):**
+```json
+{
+  "message": "Note created successfully",
+  "data": {
+    "id": "101",
+    "title": "DevOps Practice",
+    "content": "Practice Dockerizing FastAPI and deploying to K8s!",
+    "created_at": "2026-09-01T10:00:00.000Z",
+    "updated_at": null
+  }
+}
+```
 
 #### 3. Get All Notes (`GET /notes`)
 ```bash
 curl -X GET "http://localhost:8000/notes"
 ```
 
-#### 4. Get Note by ID (`GET /notes/{id}`)
+#### 4. Get Note by ID (`GET /notes/101`)
 ```bash
-curl -X GET "http://localhost:8000/notes/<NOTE_ID>"
+curl -X GET "http://localhost:8000/notes/101"
 ```
 
-#### 5. Delete a Note (`DELETE /notes/{id}`)
+#### 5. Update a Note (`PUT /notes/101`)
 ```bash
-curl -X DELETE "http://localhost:8000/notes/<NOTE_ID>"
+curl -X PUT "http://localhost:8000/notes/101" \
+     -H "Content-Type: application/json" \
+     -d '{"title": "Updated Title", "content": "Updated content details"}'
+```
+**Response (`200 OK`):**
+```json
+{
+  "message": "Note with ID '101' updated successfully",
+  "data": {
+    "id": "101",
+    "title": "Updated Title",
+    "content": "Updated content details",
+    "created_at": "2026-09-01T10:00:00.000Z",
+    "updated_at": "2026-09-01T10:05:00.000Z"
+  }
+}
 ```
 
+#### 6. Delete a Note (`DELETE /notes/101`)
+```bash
+curl -X DELETE "http://localhost:8000/notes/101"
+```
+**Response (`200 OK`):**
+```json
+{
+  "message": "Note with ID '101' deleted successfully",
+  "id": "101"
+}
+```
