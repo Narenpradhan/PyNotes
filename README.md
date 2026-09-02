@@ -1,6 +1,6 @@
 # 📝 Note-Taking API (FastAPI + MongoDB)
 
-A simple, asynchronous REST API built with **FastAPI** and **MongoDB** using **Motor**. Designed to be lightweight and clean—ideal for practicing **Docker**, **Containerization**, and **Kubernetes** deployments!
+A simple, asynchronous REST API built with **FastAPI** and **MongoDB** using **Motor**. Designed to be lightweight and clean-ideal for practicing **Docker**, **Containerization**, and **Kubernetes** deployments!
 
 ---
 
@@ -71,7 +71,7 @@ docker run -d \
   -v mongo_data:/data/db \
   -e MONGO_INITDB_ROOT_USERNAME=admin \
   -e MONGO_INITDB_ROOT_PASSWORD=password \
-  mongo:latest
+  mongo
 ```
 
 The corresponding connection string in `.env` or `MONGO_URI` is:
