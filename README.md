@@ -11,9 +11,11 @@ DevOps-Prac-v1/
 ├── app/
 │   ├── __init__.py
 │   ├── database.py       # MongoDB client configuration (motor)
-│   ├── models.py         # Pydantic schemas (NoteCreate, NoteResponse)
-│   ├── routes.py         # Endpoints for /notes (POST, GET, GET by ID, DELETE)
+│   ├── models.py         # Pydantic schemas (NoteCreate, NoteResponse, etc.)
+│   ├── routes.py         # Endpoints for /notes (POST, GET, PUT, DELETE)
 │   └── main.py           # FastAPI entrypoint, lifespan, & /health check
+├── .dockerignore         # Docker ignore rules
+├── Dockerfile            # Container definition (python:3.12-alpine3.24)
 ├── .env.example          # Sample environment variables
 ├── requirements.txt      # Python dependencies
 └── README.md             # Documentation
@@ -88,6 +90,20 @@ uvicorn app.main:app --reload --port 8000
 - API Base URL: `http://localhost:8000`
 - Interactive Swagger UI: `http://localhost:8000/docs`
 - ReDoc Documentation: `http://localhost:8000/redoc`
+
+### 5. Run with Docker (Alternative)
+
+```bash
+# Build the Docker image
+docker build -t notes-api .
+
+# Run the container
+docker run -d \
+  --name notes-api \
+  -p 8000:8000 \
+  -e MONGO_URI="mongodb://admin:password@mongodb:27017/?authSource=admin" \
+  notes-api
+```
 
 ---
 

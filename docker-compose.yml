@@ -1,0 +1,35 @@
+services:
+  mongo:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    networks:
+      - project_network
+    restart: always
+
+  pynotes:
+    image: pradhanaren/pynotes-api:distroless
+    container_name: pynotes
+    ports:
+      - "8000:8000"
+    environment:
+      MONGO_URI: "mongodb://admin:password@mongodb:27017/?authSource=admin"
+    networks:
+      - project_network
+    depends_on:
+      - mongo
+    restart: always
+
+volumes:
+  mongo_data:
+    driver: local
+
+networks:
+  project_network:
+    driver: bridge
