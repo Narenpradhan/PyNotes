@@ -26,24 +26,36 @@ def note_serializer(note: dict) -> dict:
 
 
 @router.post("", response_model=NoteCreateResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=NoteCreateResponse, status_code=status.HTTP_201_CREATED, include_in_schema=False)
 async def create_note(payload: NoteCreate):
-    """Create a new note with a 3-digit sequential ID."""
+    """Create a new note with a 3-digit sequential ID, verify via get_note, and return API response."""
     note_id = await get_next_note_id()
+    now = datetime.now(timezone.utc)
     note_doc = {
         "_id": note_id,
         "title": payload.title,
         "content": payload.content,
-        "created_at": datetime.now(timezone.utc),
+        "created_at": now,
+        "updated_at": None,
     }
-    await notes_collection.insert_one(note_doc)
-    created_note = await notes_collection.find_one({"_id": note_id})
+    result = await notes_collection.insert_one(note_doc)
+    if not result.acknowledged:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save note to database",
+        )
+
+    # Call the get_note endpoint by ID to verify it exists and retrieve serialized note
+    created_note = await get_note(note_id)
+
     return {
         "message": "Note created successfully",
-        "data": note_serializer(created_note),
+        "data": created_note,
     }
 
 
 @router.get("", response_model=list[NoteResponse])
+@router.get("/", response_model=list[NoteResponse], include_in_schema=False)
 async def get_all_notes():
     """List all notes."""
     notes = []

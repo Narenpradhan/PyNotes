@@ -167,6 +167,7 @@ curl -X POST "http://localhost:8000/notes" \
      -H "Content-Type: application/json" \
      -d '{"title": "DevOps Practice", "content": "Practice Dockerizing FastAPI and deploying to K8s!"}'
 ```
+
 **Response (`201 Created`):**
 ```json
 {

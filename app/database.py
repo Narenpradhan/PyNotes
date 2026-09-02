@@ -16,15 +16,21 @@ counters_collection = database["counters"]
 
 
 async def get_next_note_id() -> str:
-    """Generate an atomic 3-digit sequential note ID starting at 101."""
+    """Generate an atomic 3-digit sequential note ID starting at 101, avoiding duplicates."""
     counter = await counters_collection.find_one_and_update(
         {"_id": "note_id"},
         {"$inc": {"seq": 1}},
         upsert=True,
         return_document=ReturnDocument.AFTER,
     )
-    seq = counter["seq"]
+    seq = counter.get("seq", 1) if counter else 1
     if seq < 100:
         await counters_collection.update_one({"_id": "note_id"}, {"$set": {"seq": 101}})
-        return "101"
+        seq = 101
+
+    # Check if a note already exists with this ID (to prevent DuplicateKeyError)
+    while await notes_collection.find_one({"_id": str(seq)}):
+        seq += 1
+        await counters_collection.update_one({"_id": "note_id"}, {"$set": {"seq": seq}})
+
     return str(seq)
