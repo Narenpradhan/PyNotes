@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb-sts
+spec:
+  selector:
+    matchLabels:
+      app: mongodb
+  serviceName: mongodb-svc
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:8.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 27017
+        volumeMounts:
+        - mountPath: /data/db
+          name: mongodb-data
+        - mountPath: /docker-entrypoint-initdb.d
+          name: init-notesdb
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: mongodb-root-creds
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: mongodb-root-creds
+        - name: DB_NAME
+          value: notesdb
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: username
+              name: mongodb-user-creds
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: mongodb-user-creds
+      volumes:
+        - name: init-notesdb
+          configMap:
+            name: init-notesdb-cm
+  volumeClaimTemplates:
+  - metadata:
+      name: mongodb-data
+    spec:
+      accessModes: [ "ReadWriteOncePod" ]
+      storageClassName: standard
+      resources:
+        requests:
+          storage: 7Gi

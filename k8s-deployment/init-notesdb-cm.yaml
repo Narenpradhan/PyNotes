@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: init-notesdb-cm
+    labels:
+        app: mongodb
+data:
+  mongo-init.js: |
+    const rootUser = process.env.MONGO_INITDB_ROOT_USERNAME;
+    const rootPassword = process.env.MONGO_INITDB_ROOT_PASSWORD;
+    const dbName = process.env.DB_NAME;
+    const dbUser = process.env.DB_USER;
+    const dbPassword = process.env.DB_PASSWORD;
+
+    // 1. Authenticate against the admin database using root credentials
+    const adminDb = db.getSiblingDB('admin');
+    adminDb.auth(rootUser, rootPassword);
+
+    // 2. Switch to the target application database
+    const appDb = db.getSiblingDB(dbName);
+
+    console.log(`INITIALIZING : Creating user ${dbUser} on database ${dbName}`);
+
+    // 3. Create the scoped app user
+    appDb.createUser({
+      user: dbUser,
+      pwd: dbPassword,
+      roles: [
+        {
+          role: 'readWrite',
+          db: dbName
+        }
+      ]
+    });
+
+    console.log(`INITIALIZING : Successfully created ${dbUser}`);

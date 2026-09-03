@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mongodb-user-creds
+  labels:
+    app: mongodb
+type: Opaque
+stringData:
+  username: devops_dbuser
+  password: dbuser_key

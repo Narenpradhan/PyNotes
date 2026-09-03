@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pynotes-api
+spec:
+  selector:
+    matchLabels:
+      app: pynotes-api
+  template:
+    metadata:
+      labels:
+        app: pynotes-api
+    spec:
+      containers:
+        - name: pynotes-api
+          image: pradhanaren/pynotes-api:distroless
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              memory: '64Mi'
+              cpu: '250m'
+            limits:
+              memory: '128Mi'
+              cpu: '500m'
+          env:
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  key: username
+                  name: mongodb-user-creds
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: mongodb-user-creds
+            - name: DATABASE_NAME
+              value: 'notesdb'
+            - name: DB_HOST
+              value: 'mongodb-svc.default.svc.cluster.local'
+            - name: MONGO_URI
+              value: 'mongodb://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):27017/$(DATABASE_NAME)?authSource=$(DATABASE_NAME)'
+          ports:
+            - containerPort: 8000
