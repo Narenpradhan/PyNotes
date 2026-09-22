@@ -58,22 +58,22 @@ The following diagram illustrates the end-to-end traffic flow and component hier
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer ["Client & Ingress Layer"]
-        User(["Client / Tester"])
+    subgraph ClientLayer ["Client Layer"]
+        User(["User"])
         NodePort["NodePort Service: pynotes-svc\n(Port: 8000 ➔ NodePort: 30003)"]
     end
 
     subgraph ApplicationTier ["Application Tier (FastAPI)"]
-        Deploy["Deployment: pynotes-api\n(Image: pradhanaren/pynotes-api:distroless)"]
+        Deploy["Deployment: pynotes-api"]
         Pod1["FastAPI Pod\n(Probes: /health/startup, /live, /ready)"]
         Deploy --> Pod1
     end
 
     subgraph DatabaseTier ["Database Tier (MongoDB)"]
         HeadlessSvc["Headless Service: mongodb-svc\n(ClusterIP: None, Port: 27017)"]
-        STS["StatefulSet: mongodb-sts\n(Image: mongo:8.0.0)"]
+        STS["StatefulSet: mongodb-sts"]
         MongoPod["MongoDB Pod\n(mongodb-sts-0)"]
-        PVC[("PersistentVolumeClaim\n(mongodb-data: 7Gi)")]
+        PVC[("PersistentVolumeClaim\n(mongodb-data)")]
         HeadlessSvc --> STS
         STS --> MongoPod
         MongoPod --> PVC
@@ -126,6 +126,7 @@ DevOps-Prac-v1/
 ├── Dockerfile.standard           # Baseline single-stage build for learning and comparison
 ├── docker-compose.yml            # Multi-container orchestration (FastAPI + MongoDB)
 ├── requirements.txt              # Application Python dependencies
+├── TASKS.md                      # Phased hands-on practice roadmap and challenge checklist
 └── README.md                     # Documentation
 ```
 
@@ -323,27 +324,9 @@ docker compose down -v
 
 ## Hands-on DevOps Tasks Roadmap
 
-If you want to use this repository to practice your containerization and Kubernetes deployment skills from scratch, follow these phase-by-phase challenges:
+If you want to practice building and deploying this two-tier application from scratch, a structured, phase-by-phase practice roadmap is available in [TASKS.md](TASKS.md).
 
-### Phase 1: Basic Containerization
-- [ ] Create a single-stage simple Dockerfile for the application using a standard Python base image.
-- [ ] Build your image locally, run a local MongoDB container, and verify that your application container connects and serves traffic on port 8000.
-
-### Phase 2: Multi-Stage Build & Distroless Hardening
-- [ ] Write an optimized multi-stage Dockerfile with builder and runtime stages using a distroless image.
-- [ ] Tag and push your optimized container image to your Docker Hub repository.
-
-### Phase 3: Multi-Container Setup with Docker Compose
-- [ ] Write a `docker-compose.yml` file defining the API and MongoDB database services.
-- [ ] Configure custom container networking for service discovery and a named persistent volume for database storage.
-- [ ] Verify multi-container communication and data persistence across container restarts.
-
-### Phase 4: Kubernetes Deployment on Minikube
-- [ ] Create Kubernetes Secret manifests for MongoDB root and application credentials.
-- [ ] Create a ConfigMap manifest containing the database initialization script.
-- [ ] Deploy MongoDB using a StatefulSet with dynamic storage provisioning (PVC) and a Headless Service.
-- [ ] Deploy the FastAPI application using a Deployment manifest with resource limits and health probes (startup, liveness, readiness).
-- [ ] Expose the application via a NodePort Service and verify endpoint connectivity on Minikube.
+You can follow [TASKS.md](TASKS.md) as a hands-on checklist to guide your learning in a streamlined manner: research and solve each challenge independently, and refer back to the configuration files, Dockerfiles, and Kubernetes manifests in this repository whenever you need guidance or reference solutions.
 
 
 ## Connect with Me
