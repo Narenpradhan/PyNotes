@@ -1,3 +1,6 @@
+# Authored by Naren Pradhan (https://github.com/Narenpradhan)
+# PyNotes: Two-Tier Containerized Application Deployment in Kubernetes
+
 import os
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient

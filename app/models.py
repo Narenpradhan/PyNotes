@@ -1,3 +1,6 @@
+# Authored by Naren Pradhan (https://github.com/Narenpradhan)
+# PyNotes: Two-Tier Containerized Application Deployment in Kubernetes
+
 from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field

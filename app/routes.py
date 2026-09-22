@@ -1,3 +1,6 @@
+# Authored by Naren Pradhan (https://github.com/Narenpradhan)
+# PyNotes: Two-Tier Containerized Application Deployment in Kubernetes
+
 from datetime import datetime, timezone
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException, status

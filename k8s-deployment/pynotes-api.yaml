@@ -41,3 +41,22 @@ spec:
               value: 'mongodb://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):27017/$(DATABASE_NAME)?authSource=$(DATABASE_NAME)'
           ports:
             - containerPort: 8000
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5

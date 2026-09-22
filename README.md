@@ -1,218 +1,262 @@
-# 📝 Note-Taking API (FastAPI + MongoDB)
+# PyNotes: Two-Tier Containerized Application Deployment in Kubernetes (FastAPI + MongoDB)
 
-A simple, asynchronous REST API built with **FastAPI** and **MongoDB** using **Motor**. Designed to be lightweight and clean-ideal for practicing **Docker**, **Containerization**, and **Kubernetes** deployments!
+[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
+[![MongoDB](https://img.shields.io/badge/MongoDB-8.0-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com)
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-Minikube-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io)
+[![Distroless](https://img.shields.io/badge/Security-Distroless-critical?style=for-the-badge&logo=google-cloud&logoColor=white)](https://github.com/GoogleContainerTools/distroless)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/narenpradhan)
 
----
+A practical, two-tier note-taking application designed for hands-on **Docker**, **Containerization**, and **Kubernetes** deployment practice. The project features an asynchronous **FastAPI** backend and a persistent **MongoDB** database, demonstrating container optimization, multi-stage builds with Google Distroless runtime, and Kubernetes orchestration patterns on Minikube.
 
-## 📂 Project Structure
+
+## Table of Contents
+
+- [Project Overview](#project-overview)
+- [Application Architecture](#application-architecture)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [API Endpoints & Overview](#api-endpoints--overview)
+- [Running the Application with Docker Compose](#running-the-application-with-docker-compose)
+- [Hands-on DevOps Tasks Roadmap](#hands-on-devops-tasks-roadmap)
+- [Connect with Me](#connect-with-me)
+- [Copyright & Usage Notice](#copyright--usage-notice)
+
+
+## Project Overview
+
+### Introduction
+**PyNotes** is a decoupled two-tier application built to provide a realistic, lightweight backend service for practicing modern container workflows and orchestration. Rather than working with hypothetical architectures, this repository provides both application source code and full orchestration manifests to observe how an asynchronous API interacts with stateful persistent storage across local containers and Kubernetes clusters.
+
+### Key Features
+- **Asynchronous Architecture**: Fully non-blocking I/O operations using FastAPI and the `motor` asynchronous MongoDB driver.
+- **Native Kubernetes Health Probes**: Dedicated `/health/live`, `/health/ready`, and `/health/startup` probe endpoints with real database connectivity checks.
+- **Optimized Distroless Containers**: Multi-stage Docker build utilizing Google Distroless runtime to strip package managers, shells, and non-essential dependencies.
+- **Stateful Database Management**: MongoDB deployment using a Kubernetes `StatefulSet` with dynamic persistent volume claims.
+- **Decoupled Credentials**: Separation of root database administration credentials from application-scoped user credentials via Kubernetes Secrets.
+
+### DevOps & Containerization Concepts Covered
+- **Docker**:
+  - Single-stage baseline containerization.
+  - Multi-stage builds separating build tools from minimal runtime artifacts.
+  - Distroless runtime hardening for reduced attack surface and smaller image footprints.
+  - Docker Compose multi-service networking and named volume management.
+- **Kubernetes**:
+  - Deployment for stateless API pods with rolling updates and resource limits.
+  - StatefulSet for stateful database pods requiring stable network identities and dedicated storage.
+  - Headless Service for internal DNS-based stateful pod discovery.
+  - NodePort Service for exposing the application external to the Minikube cluster.
+  - ConfigMap for mounting database initialization JavaScript files dynamically.
+  - Secret for secure injection of database usernames and passwords.
+  - Health check probe configurations (`startupProbe`, `livenessProbe`, `readinessProbe`).
+
+
+## Application Architecture
+
+The following diagram illustrates the end-to-end traffic flow and component hierarchy across the two tiers in Kubernetes:
+
+```mermaid
+flowchart TD
+    subgraph ClientLayer ["Client & Ingress Layer"]
+        User(["Client / Tester"])
+        NodePort["NodePort Service: pynotes-svc\n(Port: 8000 ➔ NodePort: 30003)"]
+    end
+
+    subgraph ApplicationTier ["Application Tier (FastAPI)"]
+        Deploy["Deployment: pynotes-api\n(Image: pradhanaren/pynotes-api:distroless)"]
+        Pod1["FastAPI Pod\n(Probes: /health/startup, /live, /ready)"]
+        Deploy --> Pod1
+    end
+
+    subgraph DatabaseTier ["Database Tier (MongoDB)"]
+        HeadlessSvc["Headless Service: mongodb-svc\n(ClusterIP: None, Port: 27017)"]
+        STS["StatefulSet: mongodb-sts\n(Image: mongo:8.0.0)"]
+        MongoPod["MongoDB Pod\n(mongodb-sts-0)"]
+        PVC[("PersistentVolumeClaim\n(mongodb-data: 7Gi)")]
+        HeadlessSvc --> STS
+        STS --> MongoPod
+        MongoPod --> PVC
+    end
+
+    subgraph ConfigAndSecrets ["Configuration & Credential Store"]
+        CM["ConfigMap: init-notesdb-cm\n(mongo-init.js)"]
+        SecUser["Secret: mongodb-user-creds\n(app user & password)"]
+        SecRoot["Secret: mongodb-root-creds\n(root user & password)"]
+    end
+
+    User -->|HTTP Requests| NodePort
+    NodePort --> Pod1
+    Pod1 -->|Connect via MONGO_URI| HeadlessSvc
+    CM -.->|Mounted to /docker-entrypoint-initdb.d| MongoPod
+    SecRoot -.->|Root Auth Env| MongoPod
+    SecUser -.->|App User Provisioning| MongoPod
+    SecUser -.->|Database Credentials| Pod1
+```
+
+### Architecture Highlights:
+1. **Traffic Entry**: External HTTP requests enter through the `pynotes-svc` NodePort service (port `30003`) which routes traffic to the active FastAPI container pods.
+2. **Stateless API Layer**: The `pynotes-api` deployment manages stateless pods governed by CPU/Memory resource constraints and native health probes.
+3. **Internal Service Discovery**: The application communicates with MongoDB through the headless service `mongodb-svc.default.svc.cluster.local:27017`.
+4. **Stateful Database Tier**: MongoDB runs within a `StatefulSet` attached to a persistent volume (7Gi) via `volumeClaimTemplates` to guarantee data persistence across pod restarts or rescheduling.
+5. **Dynamic Initialization**: On initial startup, the MongoDB pod executes the mounted `mongo-init.js` from the ConfigMap, creating the scoped application database user.
+
+
+## Project Structure
 
 ```
 DevOps-Prac-v1/
 ├── app/
-│   ├── __init__.py
-│   ├── database.py       # MongoDB client configuration (motor)
-│   ├── models.py         # Pydantic schemas (NoteCreate, NoteResponse, etc.)
-│   ├── routes.py         # Endpoints for /notes (POST, GET, PUT, DELETE)
-│   └── main.py           # FastAPI entrypoint, lifespan, & /health check
-├── .dockerignore         # Docker ignore rules
-├── Dockerfile            # Container definition (python:3.12-alpine3.24)
-├── .env.example          # Sample environment variables
-├── requirements.txt      # Python dependencies
-└── README.md             # Documentation
+│   ├── __init__.py               # Application package definition
+│   ├── database.py               # Asynchronous MongoDB client (motor) & atomic ID generator
+│   ├── models.py                 # Pydantic schemas (NoteCreate, NoteResponse, etc.)
+│   ├── routes.py                 # REST API endpoints
+│   └── main.py                   # FastAPI entrypoint, lifespan events, and health probes
+├── k8s-deployment/
+│   ├── init-notesdb-cm.yaml      # ConfigMap mounting mongo-init.js initialization script
+│   ├── mongodb-root-creds.yaml   # Secret for MongoDB administrative root credentials
+│   ├── mongodb-user-creds.yaml   # Secret for scoped application database credentials
+│   ├── mongodb-svc.yaml          # Headless Service for MongoDB pod discovery
+│   ├── mongodb-sts.yaml          # StatefulSet definition with volumeClaimTemplates
+│   ├── pynotes-api.yaml          # Deployment definition with resource limits & health probes
+│   └── pynotes-svc.yaml          # NodePort Service exposing the API on port 30003
+├── .dockerignore                 # Excluded build artifacts and local virtualenvs
+├── .env.example                  # Template for local environment variables
+├── Dockerfile                    # Production multi-stage build using Google Distroless runtime
+├── Dockerfile.standard           # Baseline single-stage build for learning and comparison
+├── docker-compose.yml            # Multi-container orchestration (FastAPI + MongoDB)
+├── requirements.txt              # Application Python dependencies
+└── README.md                     # Documentation
 ```
 
----
 
-## ⚙️ Environment Variables
+## Environment Variables
 
-The application reads configuration from environment variables (or a `.env` file):
+The application configures its database connection and server parameters via environment variables:
 
 | Variable | Default Value | Description |
 | :--- | :--- | :--- |
-| `MONGO_URI` | `mongodb://localhost:27017` | MongoDB connection string |
-| `DATABASE_NAME` | `notes_db` | Name of the MongoDB database |
-| `PORT` | `8000` | Port for the uvicorn server |
+| `MONGO_URI` | `mongodb://localhost:27017` | Full MongoDB connection string (including credentials and database name) |
+| `DATABASE_NAME` | `notes_db` | Name of the target MongoDB database |
+| `PORT` | `8000` | Port for the Uvicorn web server |
+| `HOST` | `0.0.0.0` | Binding host address |
 
-> 💡 **Tip for Docker & Kubernetes**: You can easily override `MONGO_URI` in Docker with `-e MONGO_URI=...` or in Kubernetes via `ConfigMap` / `Secret` environment variables.
 
----
-
-## 🚀 Running Locally
-
-### 1. Create and Activate Virtual Environment (Using `uv`)
-
-```bash
-# Create virtual environment with uv
-uv venv
-
-# Activate virtual environment:
-# Windows (PowerShell / CMD)
-.\.venv\Scripts\activate
-
-# Linux / macOS
-source .venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
-# Using uv (fast)
-uv pip install -r requirements.txt
-
-# Or standard pip
-pip install -r requirements.txt
-```
-
-### 3. Ensure MongoDB is Running
-
-Run MongoDB with root credentials:
-```bash
-docker run -d \
-  --name mongodb \
-  -p 27017:27017 \
-  -v mongo_data:/data/db \
-  -e MONGO_INITDB_ROOT_USERNAME=admin \
-  -e MONGO_INITDB_ROOT_PASSWORD=password \
-  mongo
-```
-
-The corresponding connection string in `.env` or `MONGO_URI` is:
-```text
-mongodb://admin:password@localhost:27017/?authSource=admin
-```
-
-### 4. Start the Application
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-- API Base URL: `http://localhost:8000`
-- Interactive Swagger UI: `http://localhost:8000/docs`
-- ReDoc Documentation: `http://localhost:8000/redoc`
-
-### 5. Run with Docker (Alternative)
-
-```bash
-# Build the Docker image
-docker build -t notes-api .
-
-# Run the container
-docker run -d \
-  --name notes-api \
-  -p 8000:8000 \
-  -e MONGO_URI="mongodb://admin:password@mongodb:27017/?authSource=admin" \
-  notes-api
-```
-
----
-
-## 📌 API Endpoints
+## API Endpoints & Overview
 
 ### Entity Schema (`Note`)
-- `id` (*string*): 3-digit unique identifier (e.g., `"101"`, `"102"`)
-- `title` (*string*): Title of the note
-- `content` (*string*): Content/body of the note
-- `created_at` (*datetime*): UTC creation timestamp
-- `updated_at` (*datetime, optional*): UTC update timestamp
+- `id` (*string*): 3-digit sequential identifier (e.g., `"101"`, `"102"`).
+- `title` (*string*): Title of the note (1 to 200 characters).
+- `content` (*string*): Detailed body of the note.
+- `created_at` (*datetime*): UTC creation timestamp.
+- `updated_at` (*datetime, optional*): UTC update timestamp.
 
----
 
-### Endpoints Overview
+### Endpoints Summary
 
-| Method | Endpoint | Description | Response Status |
+| Method | Endpoint | Description | Expected Status |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/health` | General health overview | `200 OK` |
-| `GET` | `/health/live` (or `/livez`) | **Liveness Probe**: Verifies process is alive | `200 OK` |
-| `GET` | `/health/ready` (or `/readyz`) | **Readiness Probe**: Verifies DB connectivity | `200 OK` / `503 Service Unavailable` |
-| `GET` | `/health/startup` (or `/startupz`) | **Startup Probe**: Verifies initialization is done | `200 OK` / `503 Service Unavailable` |
-| `POST` | `/notes` | Create a new note | `201 Created` |
-| `GET` | `/notes` | List all notes | `200 OK` |
-| `GET` | `/notes/{id}` | Fetch a note by 3-digit ID | `200 OK` (or `404`) |
-| `PUT` | `/notes/{id}` | Update a note by 3-digit ID | `200 OK` (or `404`) |
-| `DELETE`| `/notes/{id}` | Delete a note by 3-digit ID | `200 OK` (or `404`) |
+| `GET` | `/health` | General application health status | `200 OK` |
+| `GET` | `/health/live` *(or `/livez`)* | **Liveness Probe**: Confirms the process is running | `200 OK` |
+| `GET` | `/health/ready` *(or `/readyz`)* | **Readiness Probe**: Verifies database connection | `200 OK` / `503 Unavailable` |
+| `GET` | `/health/startup` *(or `/startupz`)* | **Startup Probe**: Verifies initial startup lifecycle | `200 OK` / `503 Unavailable` |
+| `POST` | `/notes` | Create a new note (auto-assigns sequential 3-digit ID) | `201 Created` |
+| `GET` | `/notes` | Retrieve all notes (sorted latest first) | `200 OK` |
+| `GET` | `/notes/{id}` | Retrieve a specific note by ID | `200 OK` / `404 Not Found` |
+| `PUT` | `/notes/{id}` | Update note title or content | `200 OK` / `404 Not Found` |
+| `DELETE` | `/notes/{id}` | Delete a note by ID | `200 OK` / `404 Not Found` |
 
----
 
-### ☸️ Kubernetes Probe Configuration Example
+### Sample `curl` Requests & Responses
 
-When writing your Kubernetes `Deployment` manifest, you can configure the probes like this:
-
-```yaml
-livenessProbe:
-  httpGet:
-    path: /health/live
-    port: 8000
-  initialDelaySeconds: 5
-  periodSeconds: 10
-
-readinessProbe:
-  httpGet:
-    path: /health/ready
-    port: 8000
-  initialDelaySeconds: 5
-  periodSeconds: 5
-
-startupProbe:
-  httpGet:
-    path: /health/startup
-    port: 8000
-  failureThreshold: 30
-  periodSeconds: 10
+#### 1. General Health Check (`GET /health`)
+```bash
+curl -X GET "http://localhost:8000/health"
+```
+**Response (`200 OK`):**
+```json
+{
+  "status": "healthy"
+}
 ```
 
----
-
-### 🧪 Sample `curl` Requests
-
-#### 1. Probes & Health Checks
+#### 2. Liveness Probe (`GET /health/live`)
 ```bash
-# Liveness probe
 curl -X GET "http://localhost:8000/health/live"
+```
+**Response (`200 OK`):**
+```json
+{
+  "status": "alive"
+}
+```
 
-# Readiness probe
+#### 3. Readiness Probe (`GET /health/ready`)
+```bash
 curl -X GET "http://localhost:8000/health/ready"
+```
+**Response (`200 OK`):**
+```json
+{
+  "status": "ready",
+  "database": "connected"
+}
+```
 
-# Startup probe
+#### 4. Startup Probe (`GET /health/startup`)
+```bash
 curl -X GET "http://localhost:8000/health/startup"
 ```
+**Response (`200 OK`):**
+```json
+{
+  "status": "started",
+  "database": "connected"
+}
+```
 
-#### 2. Create a Note (`POST /notes`)
+#### 5. Create a Note (`POST /notes`)
 ```bash
 curl -X POST "http://localhost:8000/notes" \
      -H "Content-Type: application/json" \
-     -d '{"title": "DevOps Practice", "content": "Practice Dockerizing FastAPI and deploying to K8s!"}'
+     -d '{"title": "Kubernetes Practice", "content": "Deploying 2-tier FastAPI + MongoDB on Minikube"}'
 ```
-
 **Response (`201 Created`):**
 ```json
 {
   "message": "Note created successfully",
   "data": {
     "id": "101",
-    "title": "DevOps Practice",
-    "content": "Practice Dockerizing FastAPI and deploying to K8s!",
-    "created_at": "2026-09-01T10:00:00.000Z",
+    "title": "Kubernetes Practice",
+    "content": "Deploying 2-tier FastAPI + MongoDB on Minikube",
+    "created_at": "2026-09-22T10:00:00.000Z",
     "updated_at": null
   }
 }
 ```
 
-#### 3. Get All Notes (`GET /notes`)
+#### 6. Fetch All Notes (`GET /notes`)
 ```bash
 curl -X GET "http://localhost:8000/notes"
 ```
-
-#### 4. Get Note by ID (`GET /notes/101`)
-```bash
-curl -X GET "http://localhost:8000/notes/101"
+**Response (`200 OK`):**
+```json
+[
+  {
+    "id": "101",
+    "title": "Kubernetes Practice",
+    "content": "Deploying 2-tier FastAPI + MongoDB on Minikube",
+    "created_at": "2026-09-22T10:00:00.000Z",
+    "updated_at": null
+  }
+]
 ```
 
-#### 5. Update a Note (`PUT /notes/101`)
+#### 7. Update Note (`PUT /notes/101`)
 ```bash
 curl -X PUT "http://localhost:8000/notes/101" \
      -H "Content-Type: application/json" \
-     -d '{"title": "Updated Title", "content": "Updated content details"}'
+     -d '{"title": "Updated K8s Practice", "content": "Configured StatefulSet and Health Probes"}'
 ```
 **Response (`200 OK`):**
 ```json
@@ -220,15 +264,15 @@ curl -X PUT "http://localhost:8000/notes/101" \
   "message": "Note with ID '101' updated successfully",
   "data": {
     "id": "101",
-    "title": "Updated Title",
-    "content": "Updated content details",
-    "created_at": "2026-09-01T10:00:00.000Z",
-    "updated_at": "2026-09-01T10:05:00.000Z"
+    "title": "Updated K8s Practice",
+    "content": "Configured StatefulSet and Health Probes",
+    "created_at": "2026-09-22T10:00:00.000Z",
+    "updated_at": "2026-09-22T10:05:00.000Z"
   }
 }
 ```
 
-#### 6. Delete a Note (`DELETE /notes/101`)
+#### 8. Delete Note (`DELETE /notes/101`)
 ```bash
 curl -X DELETE "http://localhost:8000/notes/101"
 ```
@@ -239,3 +283,79 @@ curl -X DELETE "http://localhost:8000/notes/101"
   "id": "101"
 }
 ```
+
+
+## Running the Application with Docker Compose
+
+You can spin up the entire two-tier stack locally in seconds using Docker Compose:
+
+### 1. Start Containers
+```bash
+docker compose up -d
+```
+This starts:
+- `mongodb`: MongoDB container with persistent volume storage (`mongo_data`).
+- `pynotes`: FastAPI application running on port `8000` connected to MongoDB via `project_network`.
+
+### 2. Verify Container Health & Logs
+```bash
+# Check container status
+docker compose ps
+
+# View live application logs
+docker compose logs -f pynotes
+```
+
+### 3. Test & Explore
+- **Interactive Swagger UI**: Open [http://localhost:8000/docs](http://localhost:8000/docs) in your browser.
+- **ReDoc UI**: Open [http://localhost:8000/redoc](http://localhost:8000/redoc).
+- **Health Verification**:
+  ```bash
+  curl http://localhost:8000/health/ready
+  ```
+
+### 4. Teardown
+```bash
+# Stop containers and remove volumes
+docker compose down -v
+```
+
+
+## Hands-on DevOps Tasks Roadmap
+
+If you want to use this repository to practice your containerization and Kubernetes deployment skills from scratch, follow these phase-by-phase challenges:
+
+### Phase 1: Basic Containerization
+- [ ] Create a single-stage simple Dockerfile for the application using a standard Python base image.
+- [ ] Build your image locally, run a local MongoDB container, and verify that your application container connects and serves traffic on port 8000.
+
+### Phase 2: Multi-Stage Build & Distroless Hardening
+- [ ] Write an optimized multi-stage Dockerfile with builder and runtime stages using a distroless image.
+- [ ] Tag and push your optimized container image to your Docker Hub repository.
+
+### Phase 3: Multi-Container Setup with Docker Compose
+- [ ] Write a `docker-compose.yml` file defining the API and MongoDB database services.
+- [ ] Configure custom container networking for service discovery and a named persistent volume for database storage.
+- [ ] Verify multi-container communication and data persistence across container restarts.
+
+### Phase 4: Kubernetes Deployment on Minikube
+- [ ] Create Kubernetes Secret manifests for MongoDB root and application credentials.
+- [ ] Create a ConfigMap manifest containing the database initialization script.
+- [ ] Deploy MongoDB using a StatefulSet with dynamic storage provisioning (PVC) and a Headless Service.
+- [ ] Deploy the FastAPI application using a Deployment manifest with resource limits and health probes (startup, liveness, readiness).
+- [ ] Expose the application via a NodePort Service and verify endpoint connectivity on Minikube.
+
+
+## Connect with Me
+
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Naren%20Pradhan-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/narenpradhan)
+
+
+## Copyright & Usage Notice
+
+> [!IMPORTANT]
+> **Copyright & Usage Notice**
+> This repository, its architecture diagrams, code watermarks, and documentation are authored and maintained by **Naren Pradhan** ([@Narenpradhan](https://github.com/Narenpradhan)).
+> 
+> - You are encouraged to clone, review, and use this repository as a guide for hands-on personal learning and DevOps skill-building.
+> - **Plagiarism, direct duplication, re-hosting without attribution, or claiming this work as your own in technical interviews, portfolio submissions, or commercial projects is strictly prohibited.**

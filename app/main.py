@@ -1,3 +1,6 @@
+# Authored by Naren Pradhan (https://github.com/Narenpradhan)
+# PyNotes: Two-Tier Containerized Application Deployment in Kubernetes
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from app.database import client
